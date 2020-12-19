@@ -1,21 +1,29 @@
 package de.ecconia.java.remconfrs;
 
-import java.awt.Color;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.StyleConstants;
+import java.awt.event.KeyEvent;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 
 public class TerminalSimulator
 {
 	private final IOWindow window;
+	private final BufferHistory bufferHistory;
 	
 	public TerminalSimulator(IOWindow window)
 	{
 		this.window = window;
+		this.bufferHistory = new BufferHistory();
 	}
 	
 	private String lineBuffer = "";
+	private int lineAmount = 1;
+	private int horizontalCursorPosition = 1;
+	
 	private int isAnsi;
 	private String ansiTmp;
+	
+	private boolean isAppendingToLog = false;
 	
 	public void newChar(char in)
 	{
@@ -33,7 +41,7 @@ public class TerminalSimulator
 			}
 			else
 			{
-				System.out.println("\nUnexpected ANSI char: " + in + " c: " + (char) in);
+				System.out.println("\nUnexpected ANSI char: " + (int) in + " c: " + in);
 				isAnsi = 0;
 			}
 			return;
@@ -59,10 +67,24 @@ public class TerminalSimulator
 		}
 		else if(in == '\r')
 		{
-//			resetCursorPointer();
 			//Don't do anything yet.
+			if(lineBuffer.isEmpty())
+			{
+				//No worry
+				horizontalCursorPosition = 1;
+			}
+			else
+			{
+				//Worry...
+				lineBuffer += "\\r";
+				bufferHistory.addText(lineBuffer);
+			}
 			return;
 		}
+		
+		//Normal appending to lineBuffer:
+		
+		horizontalCursorPosition++;
 		
 		lineBuffer += in;
 		if(in == '\n')
@@ -70,7 +92,10 @@ public class TerminalSimulator
 			//newline, doesn't normally happen. Buffer must be shifted up once, thus new log entry.
 			window.addText(lineBuffer);
 			lineBuffer = "";
+			horizontalCursorPosition = 1; //Reset to first, since newline.
 		}
+		
+		bufferHistory.addText(lineBuffer);
 	}
 	
 	private void handleAnsi(String ansi)
@@ -84,7 +109,16 @@ public class TerminalSimulator
 				//Cursor to end of line.
 //				int length = area.getDocument().getLength();
 //				area.getDocument().remove(cursor, length - cursor);
-				lineBuffer += "'ESC'[" + ansiTmp;
+//				lineBuffer += "'ESC'[" + ansiTmp;
+				if(lineBuffer.length() > horizontalCursorPosition)
+				{
+					//Actually do nothing, cause the cursor is behind the line.
+					bufferHistory.printLine("UFFF. " + lineBuffer.length() + " and " + horizontalCursorPosition);
+				}
+				else
+				{
+					lineBuffer = lineBuffer.substring(0, horizontalCursorPosition - 1);
+				}
 			}
 			else if(index == 1)
 			{
@@ -109,7 +143,7 @@ public class TerminalSimulator
 //			else
 //			{
 //				StyleConstants.setForeground(attributes, Color.yellow);
-				//Color - well no color for you yet.
+			//Color - well no color for you yet.
 //			}
 			lineBuffer += "'ESC'[" + ansiTmp;
 		}
@@ -127,6 +161,8 @@ public class TerminalSimulator
 			}
 //			setCursorPosition(pos);
 			//Ignore for now.
+//			lineBuffer += "'ESC'[" + ansiTmp;
+			horizontalCursorPosition = pos;
 		}
 		else
 		{
@@ -135,5 +171,44 @@ public class TerminalSimulator
 //			cursor += text.length();
 			lineBuffer += "'ESC'[" + ansiTmp;
 		}
+		bufferHistory.addText(lineBuffer);
+	}
+	
+	public void debugClose()
+	{
+		bufferHistory.dispose();
+	}
+	
+	public void clearInput(OutputStreamWriter osw) throws IOException, InterruptedException
+	{
+		long start = System.currentTimeMillis();
+		while((System.currentTimeMillis() - start) < 300) //Don't do this for more than 300 ms.
+		{
+			String bufferCopy = lineBuffer;
+			if(bufferCopy.startsWith(">"))
+			{
+				if(bufferCopy.equals(">"))
+				{
+					return;
+				}
+				else
+				{
+					//Just brute force backspace...
+					osw.write('\b');
+					osw.flush();
+				}
+			}
+			else
+			{
+				Thread.sleep(1);
+			}
+		}
+		osw.write('\n');//Send newline, the force way to clear the input line.
+		osw.flush();
+		bufferHistory.printLine("Failed to clear input line within 300ms.");
+	}
+	
+	public void expectingTabcompletion()
+	{
 	}
 }

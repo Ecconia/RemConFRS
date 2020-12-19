@@ -29,17 +29,18 @@ public class RemConFRS
 			@Override
 			public void executeCommand(String command)
 			{
-				System.out.println("Execute: " + command);
-				commandsToSend.add(command);
+				System.out.print("\033[94mExecute: " + command + "\033[m");
+				commandsToSend.add(command + '\n');
 			}
 			
 			@Override
 			public void tabcompleteCommand(String command)
 			{
-				System.out.println("Tabcomplete: " + command);
+				System.out.print("\033[94mTabcomplete: " + command + "\033[m");
+				commandsToSend.add(command + '\t');
 			}
 		});
-
+		
 //		String version = "cb1.16.1.jar";
 		String version = "craftbukkit-1.16.1-R0.1-SNAPSHOT.jar";
 		ProcessBuilder builder = new ProcessBuilder("/usr/lib/jvm/java-8-openjdk/bin/java", "-Djansi.passthrough=true", "-Dorg.bukkit.craftbukkit.libs.jline.terminal=org.bukkit.craftbukkit.libs.jline.UnixTerminal", "-jar", version, "--nogui");
@@ -56,7 +57,12 @@ public class RemConFRS
 					try
 					{
 						String command = commandsToSend.take();
-						osw.write(command + '\n'); //Actually send Enter along.
+						terminalSimulator.clearInput(osw);
+						if(command.charAt(command.length() - 1) == '\t')
+						{
+							terminalSimulator.expectingTabcompletion();
+						}
+						osw.write(command);
 						osw.flush();
 					}
 					catch(InterruptedException e)
@@ -92,6 +98,10 @@ public class RemConFRS
 					}
 					
 					boolean willBeNewline = in == '\n';
+					if(willBeNewline)
+					{
+						System.out.print("\\n");
+					}
 					
 					if(wasNewline)
 					{
@@ -121,5 +131,6 @@ public class RemConFRS
 		System.out.println("Exit with: " + p.waitFor());
 		
 		window.dispose();
+		terminalSimulator.debugClose();
 	}
 }
