@@ -10,6 +10,8 @@ public class TerminalSimulator
 	private final IOWindow window;
 	private final BufferHistory bufferHistory;
 	
+	private OutputStream outputStream;
+	
 	public TerminalSimulator(IOWindow window)
 	{
 		this.window = window;
@@ -19,7 +21,7 @@ public class TerminalSimulator
 	private String lineBuffer = "";
 	private int horizontalCursorPosition = 1;
 	
-	private boolean nextInputIsTab;
+	private String tabcompletionText;
 	
 	private int isAnsi;
 	private String ansiTmp;
@@ -93,6 +95,23 @@ public class TerminalSimulator
 			lineBuffer = "";
 			horizontalCursorPosition = 1; //Reset to first, since newline.
 		}
+		else if(in == ')')
+		{
+			if(lineBuffer.matches(">.*Display all [0-9]+ possibilities\\? \\(y or n\\)"))
+			{
+				//Tabcompletion has too many results. Print all of them!
+				//ALERT: Handle this or die!!!
+				try
+				{
+					outputStream.write('y');
+					outputStream.flush();
+				}
+				catch(IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
 		
 		bufferHistory.addText(lineBuffer);
 	}
@@ -106,9 +125,9 @@ public class TerminalSimulator
 		}
 		else if(line.length() > 0 && line.charAt(0) == '>')
 		{
-			if(nextInputIsTab)
+			if(tabcompletionText != null)
 			{
-				nextInputIsTab = false;
+				tabcompletionText = null;
 				window.addText("TAB: " + line);
 			}
 			else
@@ -218,9 +237,9 @@ public class TerminalSimulator
 		bufferHistory.printLine("Failed to clear input line within 300ms.");
 	}
 	
-	public void expectingTabcompletion()
+	public void expectingTabcompletion(String tabcompletionText)
 	{
-		nextInputIsTab = true;
+		this.tabcompletionText = tabcompletionText;
 	}
 	
 	public void setOutputStream(OutputStream outputStream)

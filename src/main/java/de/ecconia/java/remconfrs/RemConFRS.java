@@ -80,6 +80,7 @@ public class RemConFRS
 		senderThread.setDaemon(true);
 		senderThread.start();
 		
+		terminalSimulator.setOutputStream(p.getOutputStream());
 		Thread readerThread = new Thread(() -> {
 			InputStreamReader isr = new InputStreamReader(p.getInputStream());
 			try
