@@ -17,13 +17,12 @@ public class TerminalSimulator
 	}
 	
 	private String lineBuffer = "";
-	private int lineAmount = 1;
 	private int horizontalCursorPosition = 1;
+	
+	private boolean nextInputIsTab;
 	
 	private int isAnsi;
 	private String ansiTmp;
-	
-	private boolean isAppendingToLog = false;
 	
 	public void newChar(char in)
 	{
@@ -90,12 +89,37 @@ public class TerminalSimulator
 		if(in == '\n')
 		{
 			//newline, doesn't normally happen. Buffer must be shifted up once, thus new log entry.
-			window.addText(lineBuffer);
+			handleNewline(lineBuffer);
 			lineBuffer = "";
 			horizontalCursorPosition = 1; //Reset to first, since newline.
 		}
 		
 		bufferHistory.addText(lineBuffer);
+	}
+	
+	public void handleNewline(String line)
+	{
+		if(line.matches("\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[.+?/[A-Z]+\\]: .*\n"))
+		{
+			//Normal output.
+			window.addText(lineBuffer);
+		}
+		else if(line.length() > 0 && line.charAt(0) == '>')
+		{
+			if(nextInputIsTab)
+			{
+				nextInputIsTab = false;
+				window.addText("TAB: " + line);
+			}
+			else
+			{
+				window.addText("CMD: " + line);
+			}
+		}
+		else
+		{
+			window.addText("?> '" + line + "'");
+		}
 	}
 	
 	private void handleAnsi(String ansi)
@@ -107,12 +131,9 @@ public class TerminalSimulator
 			if(index == 0)
 			{
 				//Cursor to end of line.
-//				int length = area.getDocument().getLength();
-//				area.getDocument().remove(cursor, length - cursor);
-//				lineBuffer += "'ESC'[" + ansiTmp;
 				if(lineBuffer.length() > horizontalCursorPosition)
 				{
-					//Actually do nothing, cause the cursor is behind the line.
+					//TODO: Actually do nothing, cause the cursor is behind the line.
 					bufferHistory.printLine("UFFF. " + lineBuffer.length() + " and " + horizontalCursorPosition);
 				}
 				else
@@ -128,23 +149,13 @@ public class TerminalSimulator
 			}
 			else //2
 			{
-				//Whole line
-//				int length = area.getDocument().getLength();
-//				area.getDocument().remove(lineStart, length - lineStart);
+				//Whole line:
 				lineBuffer = "";
 			}
 		}
 		else if(ansi.matches("[0-9;]*m"))
 		{
-//			if(ansi.length() == 1)
-//			{
-//				StyleConstants.setForeground(attributes, Color.black);
-//			}
-//			else
-//			{
-//				StyleConstants.setForeground(attributes, Color.yellow);
 			//Color - well no color for you yet.
-//			}
 			lineBuffer += "'ESC'[" + ansiTmp;
 		}
 		else if(ansi.matches("[0-9]*G"))
@@ -166,9 +177,6 @@ public class TerminalSimulator
 		}
 		else
 		{
-//			String text = "'ESC'" + ansi;
-//			area.getDocument().insertString(cursor, text, attributes);
-//			cursor += text.length();
 			lineBuffer += "'ESC'[" + ansiTmp;
 		}
 		bufferHistory.addText(lineBuffer);
@@ -185,7 +193,7 @@ public class TerminalSimulator
 		while((System.currentTimeMillis() - start) < 300) //Don't do this for more than 300 ms.
 		{
 			String bufferCopy = lineBuffer;
-			if(bufferCopy.startsWith(">"))
+			if(bufferCopy.length() > 0 && bufferCopy.charAt(0) == '>')
 			{
 				if(bufferCopy.equals(">"))
 				{
@@ -200,15 +208,23 @@ public class TerminalSimulator
 			}
 			else
 			{
+				//Wait for a bit, its probably printing to console right now.
 				Thread.sleep(1);
 			}
 		}
-		osw.write('\n');//Send newline, the force way to clear the input line.
+		//Send random garbage followed by a newline, so that we can be sure to not execute some previous tabcompletion.
+		osw.write("agahepriguwaheigbW<VIBJ\n");
 		osw.flush();
 		bufferHistory.printLine("Failed to clear input line within 300ms.");
 	}
 	
 	public void expectingTabcompletion()
 	{
+		nextInputIsTab = true;
+	}
+	
+	public void setOutputStream(OutputStream outputStream)
+	{
+		this.outputStream = outputStream;
 	}
 }

@@ -14,7 +14,7 @@ public class RemConFRS
 		new RemConFRS();
 	}
 	
-	BlockingQueue<String> commandsToSend = new LinkedBlockingQueue<>();
+	private final BlockingQueue<String> commandsToSend = new LinkedBlockingQueue<>();
 	
 	//Raw until DispenserRegistry->d() which forwards to INFO @ LOGGER.
 	
