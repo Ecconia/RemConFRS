@@ -83,6 +83,11 @@ public class TerminalSimulator
 			return;
 		}
 		
+		handleChar(in);
+	}
+	
+	private void handleChar(char in)
+	{
 		//Normal appending to lineBuffer:
 		
 		horizontalCursorPosition++;

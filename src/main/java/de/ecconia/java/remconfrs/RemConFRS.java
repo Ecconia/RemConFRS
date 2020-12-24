@@ -60,7 +60,7 @@ public class RemConFRS
 						terminalSimulator.clearInput(osw);
 						if(command.charAt(command.length() - 1) == '\t')
 						{
-							terminalSimulator.expectingTabcompletion();
+							terminalSimulator.expectingTabcompletion(command.substring(0, command.length() - 1));
 						}
 						osw.write(command);
 						osw.flush();
